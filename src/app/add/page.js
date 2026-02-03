@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FaArrowLeft } from 'react-icons/fa';
 import ImageCapture from '@/components/Input/ImageCapture';
 import PDFUploader from '@/components/Input/PDFUploader';
-import { extractTextFromImage } from '@/lib/ocr';
+
 import { extractTextFromPDF } from '@/lib/pdf';
 import { generateWordList } from '@/lib/llm';
 import { useVocabulary } from '@/context/VocabularyContext';
@@ -17,38 +17,59 @@ export default function AddPage() {
 
     const [activeTab, setActiveTab] = useState('image'); // 'image' or 'pdf'
     const [isProcessing, setIsProcessing] = useState(false);
-    const [extractedText, setExtractedText] = useState('');
 
-    const [apiKey, setApiKey] = useState('');
+    // For PDF: text content | For Image: base64 string
+    const [extractedText, setExtractedText] = useState('');
+    const [imageBase64, setImageBase64] = useState(null);
+
     const [generatedWords, setGeneratedWords] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
 
     const handleProcess = async (file) => {
-        if (!file) return;
+        if (!file) {
+            setExtractedText('');
+            setImageBase64(null);
+            return;
+        }
+
         setIsProcessing(true);
         setExtractedText('');
+        setImageBase64(null);
+        setGeneratedWords([]);
 
         try {
-            let text = '';
             if (activeTab === 'image') {
-                text = await extractTextFromImage(file);
+                // Convert image to Base64 for Gemini Vision
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImageBase64(reader.result);
+                    setIsProcessing(false);
+                };
+                reader.readAsDataURL(file);
             } else {
-                text = await extractTextFromPDF(file);
+                // Determine if PDF or something else
+                const text = await extractTextFromPDF(file);
+                setExtractedText(text);
+                setIsProcessing(false);
             }
-            setExtractedText(text);
         } catch (error) {
             alert('Failed to process file: ' + error.message);
-        } finally {
             setIsProcessing(false);
         }
     };
 
     const handleGenerate = async () => {
-        if (!apiKey) return alert('Please enter an API Key');
         setIsGenerating(true);
         try {
-            const words = await generateWordList(extractedText, apiKey);
-            setGeneratedWords(words);
+            let result;
+            if (activeTab === 'image') {
+                if (!imageBase64) return alert("No image loaded");
+                result = await generateWordList(imageBase64, 'image');
+            } else {
+                if (!extractedText) return alert("No text extracted from PDF");
+                result = await generateWordList(extractedText, 'text');
+            }
+            setGeneratedWords(result);
         } catch (error) {
             alert('Generation failed: ' + error.message);
         } finally {
@@ -79,7 +100,7 @@ export default function AddPage() {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
                 <button
-                    onClick={() => setActiveTab('image')}
+                    onClick={() => { setActiveTab('image'); setGeneratedWords([]); }}
                     style={{
                         flex: 1,
                         padding: '10px',
@@ -94,7 +115,7 @@ export default function AddPage() {
                     Camera / Image
                 </button>
                 <button
-                    onClick={() => setActiveTab('pdf')}
+                    onClick={() => { setActiveTab('pdf'); setGeneratedWords([]); }}
                     style={{
                         flex: 1,
                         padding: '10px',
@@ -122,48 +143,40 @@ export default function AddPage() {
                 </div>
             )}
 
-            {extractedText && (
+            {/* Content Preview & Action Area */}
+            {((activeTab === 'image' && imageBase64) || (activeTab === 'pdf' && extractedText)) && (
                 <div className="glass-panel" style={{ marginTop: '30px', padding: '20px' }}>
-                    <h3 style={{ marginBottom: '10px' }}>Extracted Text</h3>
-                    <p style={{
-                        whiteSpace: 'pre-wrap',
-                        color: 'var(--text-secondary)',
-                        fontSize: '0.9rem',
-                        maxHeight: '150px',
-                        overflowY: 'auto',
-                        marginBottom: '20px',
-                        borderBottom: '1px solid rgba(255,255,255,0.1)',
-                        paddingBottom: '10px'
-                    }}>
-                        {extractedText}
-                    </p>
 
-                    <div style={{ marginBottom: '15px' }}>
-                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Gemini API Key</label>
-                        <input
-                            type="password"
-                            placeholder="Paste your API Key here"
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid rgba(255,255,255,0.2)',
-                                background: 'rgba(0,0,0,0.3)',
-                                color: 'white'
-                            }}
-                        />
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
-                            Key is not saved permanently in this demo.
-                        </p>
-                    </div>
+                    {activeTab === 'pdf' && (
+                        <>
+                            <h3 style={{ marginBottom: '10px' }}>Extracted Text</h3>
+                            <p style={{
+                                whiteSpace: 'pre-wrap',
+                                color: 'var(--text-secondary)',
+                                fontSize: '0.9rem',
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                marginBottom: '20px',
+                                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                paddingBottom: '10px'
+                            }}>
+                                {extractedText}
+                            </p>
+                        </>
+                    )}
+
+                    {activeTab === 'image' && (
+                        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                            <p style={{ color: 'var(--text-accent)' }}>✅ Image ready for AI analysis</p>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Gemini Vision will extract words directly from the image.</p>
+                        </div>
+                    )}
 
                     <button
                         className="btn-primary"
                         style={{ width: '100%' }}
                         onClick={handleGenerate}
-                        disabled={!apiKey || isGenerating}
+                        disabled={isGenerating}
                     >
                         {isGenerating ? 'Analyzing with AI...' : 'Generate Word List'}
                     </button>

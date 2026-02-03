@@ -11,7 +11,10 @@ const nextConfig = {
         canvas: './empty-module.js',
       }
     }
-  }
+  },
+  env: {
+    NEXT_PUBLIC_GEMINI_API_KEY: 'AIzaSyBiUUiBKKZS12P4qs2RJcYC_YCri8kZ4Sk',
+  },
 };
 
 export default nextConfig;
