@@ -3,7 +3,7 @@ export const extractTextFromPDF = async (file) => {
 
     try {
         // Dynamic import to prevent server-side build errors (DOMMatrix, canvas)
-        const pdfjsLib = await import('pdfjs-dist');
+        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
 
         // Configure worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
