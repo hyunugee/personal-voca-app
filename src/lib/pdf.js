@@ -1,12 +1,13 @@
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure worker. In a real Next.js app, this often needs pointing to a static file or CDN.
-// For simplicity in this dev environment, we'll try to use the CDN worker if local fails,
-// or often pdfjs-dist/build/pdf.worker.min.mjs is imported.
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
 export const extractTextFromPDF = async (file) => {
+    if (typeof window === 'undefined') return ''; // Ensure client-side only
+
     try {
+        // Dynamic import to prevent server-side build errors (DOMMatrix, canvas)
+        const pdfjsLib = await import('pdfjs-dist');
+
+        // Configure worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 

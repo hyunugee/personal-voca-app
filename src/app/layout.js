@@ -4,7 +4,13 @@ import './globals.css';
 export const metadata = {
   title: 'Personal Voca',
   description: 'Your AI-powered vocabulary assistant',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0',
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // user-scalable=0 maps to false
   themeColor: '#0f1115',
 };
 
